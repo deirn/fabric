@@ -97,6 +97,11 @@ public final class ServerPlayNetworkAddon extends AbstractChanneledNetworkAddon<
 	}
 
 	@Override
+	public int getMaxPayloadSize() {
+		return ServerPlayNetworking.MAX_PAYLOAD_SIZE;
+	}
+
+	@Override
 	public Packet<?> createPacket(Identifier channelName, PacketByteBuf buf) {
 		return ServerPlayNetworking.createS2CPacket(channelName, buf);
 	}

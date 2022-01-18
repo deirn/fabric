@@ -16,8 +16,12 @@
 
 package net.fabricmc.fabric.api.networking.v1;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
+import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
@@ -199,6 +203,48 @@ public final class PacketByteBufs {
 		Objects.requireNonNull(buf, "ByteBuf cannot be null");
 
 		return new PacketByteBuf(buf.retainedDuplicate());
+	}
+
+	/**
+	 * Splits a buf into multiple parts, and call the consumer with the results.
+	 *
+	 * @param buf      the buf to split, would be released at the end of the method
+	 * @param maxSize  the maximum size of the parts, the last part would probably be smaller
+	 * @param consumer the consumer that would be called with each buf parts
+	 */
+	public static void split(ByteBuf buf, int maxSize, Consumer<PacketByteBuf> consumer) {
+		Objects.requireNonNull(buf, "ByteBuf cannot be null");
+		Preconditions.checkArgument(maxSize > 0, "maxSize must be greater than 0");
+
+		int readableBytes = buf.readableBytes();
+		int sliceIndex = 0;
+
+		while (sliceIndex < readableBytes) {
+			int sliceSize = Math.min(readableBytes - sliceIndex, maxSize);
+			PacketByteBuf slicedBuf = retainedSlice(buf, sliceIndex, sliceSize);
+			consumer.accept(slicedBuf);
+			sliceIndex += sliceSize;
+		}
+
+		buf.release();
+	}
+
+	/**
+	 * Splits a buf into multiple parts.
+	 *
+	 * @param buf     the buf to split, would be released at the end of the method
+	 * @param maxSize the maximum size of the parts, the last part would probably be smaller
+	 * @return a list containing all the parts
+	 * @see #split(ByteBuf, int, Consumer)
+	 */
+	public static List<PacketByteBuf> split(ByteBuf buf, int maxSize) {
+		Objects.requireNonNull(buf, "ByteBuf cannot be null");
+		Preconditions.checkArgument(maxSize > 0, "maxSize must be greater than 0");
+
+		List<PacketByteBuf> slicedBufs = new ArrayList<>();
+		split(buf, maxSize, slicedBufs::add);
+
+		return slicedBufs;
 	}
 
 	private PacketByteBufs() {

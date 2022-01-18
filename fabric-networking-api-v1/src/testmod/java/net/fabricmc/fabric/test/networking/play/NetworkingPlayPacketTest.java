@@ -20,6 +20,7 @@ import static com.mojang.brigadier.arguments.StringArgumentType.string;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
+import com.google.common.base.Preconditions;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -38,6 +39,7 @@ import net.fabricmc.fabric.test.networking.NetworkingTestmods;
 
 public final class NetworkingPlayPacketTest implements ModInitializer {
 	public static final Identifier TEST_CHANNEL = NetworkingTestmods.id("test_channel");
+	public static final Identifier TEST_SPLIT_CHANNEL = NetworkingTestmods.id("test_split_channel");
 
 	public static void sendToTestChannel(ServerPlayerEntity player, String stuff) {
 		PacketByteBuf buf = PacketByteBufs.create();
@@ -62,6 +64,14 @@ public final class NetworkingPlayPacketTest implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
 			NetworkingPlayPacketTest.registerCommand(dispatcher);
+		});
+
+		ServerPlayNetworking.registerSplitGlobalReceiver(TEST_SPLIT_CHANNEL, (server, player, handler, buf, responseSender) -> {
+			int size = buf.readableBytes();
+			Preconditions.checkArgument(size == 50000);
+			byte[] bytes = new byte[50000];
+			buf.readBytes(bytes);
+			NetworkingTestmods.LOGGER.info("Successfully received 50000 bytes from client!");
 		});
 	}
 }

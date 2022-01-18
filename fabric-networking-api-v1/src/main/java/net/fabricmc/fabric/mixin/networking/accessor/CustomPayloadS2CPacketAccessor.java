@@ -19,20 +19,12 @@ package net.fabricmc.fabric.mixin.networking.accessor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.packet.c2s.play.CustomPayloadC2SPacket;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
 
-@Mixin(CustomPayloadC2SPacket.class)
-public interface CustomPayloadC2SPacketAccessor {
+@Mixin(CustomPayloadS2CPacket.class)
+public interface CustomPayloadS2CPacketAccessor {
 	@Accessor("MAX_PAYLOAD_SIZE")
 	static int getMaxPayloadSize() {
 		throw new AssertionError();
 	}
-
-	@Accessor
-	Identifier getChannel();
-
-	@Accessor
-	PacketByteBuf getData();
 }

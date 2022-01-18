@@ -30,6 +30,8 @@ import net.minecraft.util.Identifier;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.impl.networking.server.ServerNetworkingImpl;
+import net.fabricmc.fabric.impl.networking.server.SplitServerPlayChannelHandler;
+import net.fabricmc.fabric.mixin.networking.accessor.CustomPayloadS2CPacketAccessor;
 
 /**
  * Offers access to play stage server-side networking functionalities.
@@ -42,6 +44,11 @@ import net.fabricmc.fabric.impl.networking.server.ServerNetworkingImpl;
  * @see ClientPlayNetworking
  */
 public final class ServerPlayNetworking {
+	/**
+	 * The maximum size a <b>single</b> packet could be sent from the server to the client.
+	 */
+	public static final int MAX_PAYLOAD_SIZE = Integer.getInteger("fabric.networking.play.s2c.maxPayloadSize", CustomPayloadS2CPacketAccessor.getMaxPayloadSize());
+
 	/**
 	 * Registers a handler to a channel.
 	 * A global receiver is registered to all connections, in the present and future.
@@ -57,6 +64,28 @@ public final class ServerPlayNetworking {
 	 */
 	public static boolean registerGlobalReceiver(Identifier channelName, PlayChannelHandler channelHandler) {
 		return ServerNetworkingImpl.PLAY.registerGlobalReceiver(channelName, channelHandler);
+	}
+
+	/**
+	 * Registers a <b>split</b> handler to a channel.
+	 * A global receiver is registered to all connections, in the present and future.
+	 *
+	 * <p>This method will automatically handle packet splitting, allowing packets bigger than
+	 * {@link ClientPlayNetworking#MAX_PAYLOAD_SIZE} to be sent to the server.
+	 *
+	 * <p>If a handler is already registered to the {@code channel}, this method will return {@code false}, and no change will be made.
+	 * Use {@link #unregisterReceiver(ServerPlayNetworkHandler, Identifier)} to unregister the existing handler.
+	 *
+	 * @param channelName    the id of the channel
+	 * @param channelHandler the handler
+	 * @return false if a handler is already registered to the channel
+	 * @see ServerPlayNetworking#unregisterGlobalReceiver(Identifier)
+	 * @see ServerPlayNetworking#registerReceiver(ServerPlayNetworkHandler, Identifier, PlayChannelHandler)
+	 * @see ClientPlayNetworking#sendSplit(Identifier, PacketByteBuf)
+	 * @see PacketSender#sendSplitPacket(Identifier, PacketByteBuf)
+	 */
+	public static boolean registerSplitGlobalReceiver(Identifier channelName, PlayChannelHandler channelHandler) {
+		return registerGlobalReceiver(channelName, new SplitServerPlayChannelHandler(channelHandler));
 	}
 
 	/**
@@ -106,6 +135,34 @@ public final class ServerPlayNetworking {
 		Objects.requireNonNull(networkHandler, "Network handler cannot be null");
 
 		return ServerNetworkingImpl.getAddon(networkHandler).registerChannel(channelName, channelHandler);
+	}
+
+	/**
+	 * Registers a handler to a channel.
+	 * This method differs from {@link ServerPlayNetworking#registerGlobalReceiver(Identifier, PlayChannelHandler)} since
+	 * the channel handler will only be applied to the player represented by the {@link ServerPlayNetworkHandler}.
+	 *
+	 * <p>This method will automatically handle packet splitting, allowing packets bigger than
+	 * {@link ClientPlayNetworking#MAX_PAYLOAD_SIZE} to be sent to the server.
+	 *
+	 * <p>For example, if you only register a receiver using this method when a {@linkplain ServerLoginNetworking#registerGlobalReceiver(Identifier, ServerLoginNetworking.LoginQueryResponseHandler)}
+	 * login response has been received, you should use {@link ServerPlayConnectionEvents#INIT} to register the channel handler.
+	 *
+	 * <p>If a handler is already registered to the {@code channelName}, this method will return {@code false}, and no change will be made.
+	 * Use {@link #unregisterReceiver(ServerPlayNetworkHandler, Identifier)} to unregister the existing handler.
+	 *
+	 * @param networkHandler the handler
+	 * @param channelName    the id of the channel
+	 * @param channelHandler the handler
+	 * @return false if a handler is already registered to the channel name
+	 * @see ServerPlayConnectionEvents#INIT
+	 * @see ClientPlayNetworking#sendSplit(Identifier, PacketByteBuf)
+	 * @see PacketSender#sendSplitPacket(Identifier, PacketByteBuf)
+	 */
+	public static boolean registerSplitReceiver(ServerPlayNetworkHandler networkHandler, Identifier channelName, PlayChannelHandler channelHandler) {
+		Objects.requireNonNull(networkHandler, "Network handler cannot be null");
+
+		return registerReceiver(networkHandler, channelName, new SplitServerPlayChannelHandler(channelHandler));
 	}
 
 	/**
@@ -249,6 +306,27 @@ public final class ServerPlayNetworking {
 		Objects.requireNonNull(buf, "Packet byte buf cannot be null");
 
 		player.networkHandler.sendPacket(createS2CPacket(channelName, buf));
+	}
+
+	/**
+	 * Sends a <b>split</b> packet to a player.
+	 *
+	 * <p>This method will split the payload into smaller ones if it exceeds {@link #MAX_PAYLOAD_SIZE},
+	 * making sending bigger packets possible.
+	 *
+	 * @param player      the player to send the packet to
+	 * @param channelName the channel of the packet
+	 * @param buf         the payload of the packet.
+	 * @see ClientPlayNetworking#registerSplitReceiver(Identifier, ClientPlayNetworking.PlayChannelHandler)
+	 * @see ClientPlayNetworking#registerSplitGlobalReceiver(Identifier, ClientPlayNetworking.PlayChannelHandler)
+	 */
+	public static void sendSplit(ServerPlayerEntity player, Identifier channelName, PacketByteBuf buf) {
+		Objects.requireNonNull(player, "Server player entity cannot be null");
+		Objects.requireNonNull(channelName, "Channel name cannot be null");
+		Objects.requireNonNull(buf, "Packet byte buf cannot be null");
+
+		PacketByteBufs.split(buf, MAX_PAYLOAD_SIZE, slicedBuf -> player.networkHandler.sendPacket(createS2CPacket(channelName, slicedBuf)));
+		player.networkHandler.sendPacket(createS2CPacket(channelName, PacketByteBufs.empty()));
 	}
 
 	// Helper methods

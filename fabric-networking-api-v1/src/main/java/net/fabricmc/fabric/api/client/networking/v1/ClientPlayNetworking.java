@@ -25,14 +25,18 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.Packet;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.util.Identifier;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.impl.networking.client.ClientNetworkingImpl;
 import net.fabricmc.fabric.impl.networking.client.ClientPlayNetworkAddon;
+import net.fabricmc.fabric.impl.networking.client.SplitClientPlayChannelHandler;
+import net.fabricmc.fabric.mixin.networking.accessor.CustomPayloadC2SPacketAccessor;
 
 /**
  * Offers access to play stage client-side networking functionalities.
@@ -48,6 +52,11 @@ import net.fabricmc.fabric.impl.networking.client.ClientPlayNetworkAddon;
 @Environment(EnvType.CLIENT)
 public final class ClientPlayNetworking {
 	/**
+	 * The maximum size a <b>single</b> packet could be sent from the client to the server.
+	 */
+	public static final int MAX_PAYLOAD_SIZE = Integer.getInteger("fabric.networking.play.c2s.maxPayloadSize", CustomPayloadC2SPacketAccessor.getMaxPayloadSize());
+
+	/**
 	 * Registers a handler to a channel.
 	 * A global receiver is registered to all connections, in the present and future.
 	 *
@@ -62,6 +71,26 @@ public final class ClientPlayNetworking {
 	 */
 	public static boolean registerGlobalReceiver(Identifier channelName, PlayChannelHandler channelHandler) {
 		return ClientNetworkingImpl.PLAY.registerGlobalReceiver(channelName, channelHandler);
+	}
+
+	/**
+	 * Registers a handler to a channel.
+	 * A global receiver is registered to all connections, in the present and future.
+	 *
+	 * <p>This method will automatically handle packet splitting, allowing packets bigger than
+	 * {@link ServerPlayNetworking#MAX_PAYLOAD_SIZE} to be sent to the client.
+	 *
+	 * <p>If a handler is already registered to the {@code channel}, this method will return {@code false}, and no change will be made.
+	 * Use {@link #unregisterGlobalReceiver(Identifier)} to unregister the existing handler.
+	 *
+	 * @param channelName    the id of the channel
+	 * @param channelHandler the handler
+	 * @return false if a handler is already registered to the channel
+	 * @see ClientPlayNetworking#unregisterGlobalReceiver(Identifier)
+	 * @see ClientPlayNetworking#registerReceiver(Identifier, PlayChannelHandler)
+	 */
+	public static boolean registerSplitGlobalReceiver(Identifier channelName, PlayChannelHandler channelHandler) {
+		return registerGlobalReceiver(channelName, new SplitClientPlayChannelHandler(channelHandler));
 	}
 
 	/**
@@ -112,6 +141,27 @@ public final class ClientPlayNetworking {
 		}
 
 		throw new IllegalStateException("Cannot register receiver while not in game!");
+	}
+
+	/**
+	 * Registers a handler to a channel.
+	 *
+	 * <p>This method will automatically handle packet splitting, allowing packets bigger than
+	 * {@link ServerPlayNetworking#MAX_PAYLOAD_SIZE} to be sent to the client.
+	 *
+	 * <p>If a handler is already registered to the {@code channel}, this method will return {@code false}, and no change will be made.
+	 * Use {@link #unregisterReceiver(Identifier)} to unregister the existing handler.
+	 *
+	 * <p>For example, if you only register a receiver using this method when a {@linkplain ClientLoginNetworking#registerGlobalReceiver(Identifier, ClientLoginNetworking.LoginQueryRequestHandler)}
+	 * login query has been received, you should use {@link ClientPlayConnectionEvents#INIT} to register the channel handler.
+	 *
+	 * @param channelName the id of the channel
+	 * @return false if a handler is already registered to the channel
+	 * @throws IllegalStateException if the client is not connected to a server
+	 * @see ClientPlayConnectionEvents#INIT
+	 */
+	public static boolean registerSplitReceiver(Identifier channelName, PlayChannelHandler channelHandler) {
+		return registerReceiver(channelName, new SplitClientPlayChannelHandler(channelHandler));
 	}
 
 	/**
@@ -226,6 +276,26 @@ public final class ClientPlayNetworking {
 		}
 
 		throw new IllegalStateException("Cannot send packets when not in game!");
+	}
+
+	/**
+	 * Sends a <b>split</b> packet to the connected server.
+	 *
+	 * <p>This method will split the payload into smaller ones if it exceeds {@link #MAX_PAYLOAD_SIZE},
+	 * making sending bigger packets possible.
+	 *
+	 * @param channelName the channel of the packet
+	 * @param buf         the payload of the packet
+	 * @throws IllegalStateException if the client is not connected to a server
+	 * @see ServerPlayNetworking#registerSplitReceiver(ServerPlayNetworkHandler, Identifier, ServerPlayNetworking.PlayChannelHandler)
+	 * @see ServerPlayNetworking#registerSplitGlobalReceiver(Identifier, ServerPlayNetworking.PlayChannelHandler)
+	 */
+	public static void sendSplit(Identifier channelName, PacketByteBuf buf) throws IllegalStateException {
+		ClientPlayNetworkHandler handler = MinecraftClient.getInstance().getNetworkHandler();
+		if (handler == null) throw new IllegalStateException("Cannot send packets when not in game!");
+
+		PacketByteBufs.split(buf, MAX_PAYLOAD_SIZE, slicedBuf -> handler.sendPacket(createC2SPacket(channelName, slicedBuf)));
+		handler.sendPacket(createC2SPacket(channelName, PacketByteBufs.empty()));
 	}
 
 	private ClientPlayNetworking() {

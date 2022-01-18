@@ -25,13 +25,22 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.network.Packet;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.util.Identifier;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 /**
  * Represents something that supports sending packets to channels.
+ *
  * @see PacketByteBufs
  */
 public interface PacketSender {
+	/**
+	 * Returns the maximum size a single packet could be sent.
+	 */
+	int getMaxPayloadSize();
+
 	/**
 	 * Makes a packet for a channel.
 	 *
@@ -69,6 +78,24 @@ public interface PacketSender {
 	}
 
 	/**
+	 * Sends a <b>split</b> packet to a channel.
+	 *
+	 * @param channel the id of the channel
+	 * @param buf     the content of the packet
+	 * @see ServerPlayNetworking#registerSplitReceiver(ServerPlayNetworkHandler, Identifier, ServerPlayNetworking.PlayChannelHandler)
+	 * @see ServerPlayNetworking#registerSplitGlobalReceiver(Identifier, ServerPlayNetworking.PlayChannelHandler)
+	 * @see ClientPlayNetworking#registerSplitReceiver(Identifier, ClientPlayNetworking.PlayChannelHandler)
+	 * @see ClientPlayNetworking#registerSplitGlobalReceiver(Identifier, ClientPlayNetworking.PlayChannelHandler)
+	 */
+	default void sendSplitPacket(Identifier channel, PacketByteBuf buf) {
+		Objects.requireNonNull(channel, "Channel cannot be null");
+		Objects.requireNonNull(buf, "Payload cannot be null");
+
+		PacketByteBufs.split(buf, getMaxPayloadSize(), slicedBuf -> this.sendPacket(this.createPacket(channel, slicedBuf)));
+		this.sendPacket(this.createPacket(channel, PacketByteBufs.empty()));
+	}
+
+	/**
 	 * Sends a packet to a channel.
 	 *
 	 * @param channel  the id of the channel
@@ -81,5 +108,25 @@ public interface PacketSender {
 		Objects.requireNonNull(buf, "Payload cannot be null");
 
 		this.sendPacket(this.createPacket(channel, buf), callback);
+	}
+
+	/**
+	 * Sends a <b>split</b> packet to a channel.
+	 *
+	 * @param channel  the id of the channel
+	 * @param buf      the content of the packet
+	 * @param callback an optional callback to execute after the packet is sent, may be {@code null}
+	 * @see ServerPlayNetworking#registerSplitReceiver(ServerPlayNetworkHandler, Identifier, ServerPlayNetworking.PlayChannelHandler)
+	 * @see ServerPlayNetworking#registerSplitGlobalReceiver(Identifier, ServerPlayNetworking.PlayChannelHandler)
+	 * @see ClientPlayNetworking#registerSplitReceiver(Identifier, ClientPlayNetworking.PlayChannelHandler)
+	 * @see ClientPlayNetworking#registerSplitGlobalReceiver(Identifier, ClientPlayNetworking.PlayChannelHandler)
+	 */
+	default void sendSplitPacket(Identifier channel, PacketByteBuf buf, @Nullable GenericFutureListener<? extends Future<? super Void>> callback) {
+		Objects.requireNonNull(channel, "Channel cannot be null");
+		Objects.requireNonNull(buf, "Payload cannot be null");
+
+		// only call the callback on the ending buf
+		PacketByteBufs.split(buf, getMaxPayloadSize(), slicedBuf -> this.sendPacket(this.createPacket(channel, slicedBuf)));
+		this.sendPacket(this.createPacket(channel, PacketByteBufs.empty()), callback);
 	}
 }

@@ -14,25 +14,32 @@
  * limitations under the License.
  */
 
-package net.fabricmc.fabric.mixin.networking.accessor;
+package net.fabricmc.fabric.impl.networking;
 
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Accessor;
+import java.util.function.Consumer;
+
+import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.packet.c2s.play.CustomPayloadC2SPacket;
-import net.minecraft.util.Identifier;
 
-@Mixin(CustomPayloadC2SPacket.class)
-public interface CustomPayloadC2SPacketAccessor {
-	@Accessor("MAX_PAYLOAD_SIZE")
-	static int getMaxPayloadSize() {
-		throw new AssertionError();
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+
+public class SplitChannelHandler {
+	@Nullable
+	private PacketByteBuf combinedBuf;
+
+	protected void receive(PacketByteBuf slicedBuf, Consumer<PacketByteBuf> combinedBufConsumer) {
+		if (combinedBuf == null) {
+			combinedBuf = PacketByteBufs.create();
+		}
+
+		if (slicedBuf.readableBytes() > 0) {
+			combinedBuf.writeBytes(slicedBuf);
+			return;
+		}
+
+		combinedBufConsumer.accept(combinedBuf);
+		combinedBuf.release();
+		combinedBuf = null;
 	}
-
-	@Accessor
-	Identifier getChannel();
-
-	@Accessor
-	PacketByteBuf getData();
 }

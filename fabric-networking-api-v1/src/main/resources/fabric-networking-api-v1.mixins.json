@@ -9,7 +9,9 @@
     "ServerLoginNetworkHandlerMixin",
     "ServerPlayNetworkHandlerMixin",
     "accessor.CustomPayloadC2SPacketAccessor",
+    "accessor.CustomPayloadS2CPacketAccessor",
     "accessor.EntityTrackerAccessor",
+    "accessor.LoginQueryRequestS2CPacketAccessor",
     "accessor.LoginQueryResponseC2SPacketAccessor",
     "accessor.ServerLoginNetworkHandlerAccessor",
     "accessor.ThreadedAnvilChunkStorageAccessor"

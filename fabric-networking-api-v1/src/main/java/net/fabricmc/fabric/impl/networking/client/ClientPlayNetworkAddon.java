@@ -105,6 +105,11 @@ public final class ClientPlayNetworkAddon extends AbstractChanneledNetworkAddon<
 	}
 
 	@Override
+	public int getMaxPayloadSize() {
+		return ClientPlayNetworking.MAX_PAYLOAD_SIZE;
+	}
+
+	@Override
 	public Packet<?> createPacket(Identifier channelName, PacketByteBuf buf) {
 		return ClientPlayNetworking.createC2SPacket(channelName, buf);
 	}

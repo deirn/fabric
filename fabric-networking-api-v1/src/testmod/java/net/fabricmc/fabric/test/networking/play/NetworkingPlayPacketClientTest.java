@@ -16,6 +16,8 @@
 
 package net.fabricmc.fabric.test.networking.play;
 
+import java.util.Random;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.PacketByteBuf;
@@ -24,15 +26,28 @@ import net.minecraft.text.Text;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
+import net.fabricmc.fabric.test.networking.NetworkingTestmods;
 
 public final class NetworkingPlayPacketClientTest implements ClientModInitializer {
+	private static final Random RANDOM = new Random();
+
 	@Override
 	public void onInitializeClient() {
 		//ClientPlayNetworking.registerGlobalReceiver(NetworkingPlayPacketTest.TEST_CHANNEL, this::receive);
 
 		ClientPlayConnectionEvents.INIT.register((handler, client) -> {
 			ClientPlayNetworking.registerReceiver(NetworkingPlayPacketTest.TEST_CHANNEL, (client1, handler1, buf, sender1) -> receive(handler1, sender1, client1, buf));
+		});
+
+		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+			PacketByteBuf buf = PacketByteBufs.create();
+			byte[] bytes = new byte[50000];
+			RANDOM.nextBytes(bytes);
+			buf.writeBytes(bytes);
+			NetworkingTestmods.LOGGER.info("Sending 50000 bytes to the server!");
+			sender.sendSplitPacket(NetworkingPlayPacketTest.TEST_SPLIT_CHANNEL, buf);
 		});
 	}
 
