@@ -43,9 +43,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.util.registry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.registry.Registry;
+import net.minecraft.util.registry.RegistryEntry;
 import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.util.registry.SimpleRegistry;
 
@@ -53,6 +53,7 @@ import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryRemovedCallback;
+import net.fabricmc.fabric.api.event.registry.RegistryFrozenCallback;
 import net.fabricmc.fabric.api.event.registry.RegistryIdRemapCallback;
 import net.fabricmc.fabric.impl.registry.sync.ListenableRegistry;
 import net.fabricmc.fabric.impl.registry.sync.RemapException;
@@ -117,6 +118,15 @@ public abstract class MixinIdRegistry<T> extends Registry<T> implements Remappab
 	);
 
 	@Unique
+	private final Event<RegistryFrozenCallback<T>> fabric_frozenEvent = EventFactory.createArrayBacked(RegistryFrozenCallback.class,
+			(callbacks) -> (a) -> {
+				for (RegistryFrozenCallback<T> callback : callbacks) {
+					callback.onFrozen(a);
+				}
+			}
+	);
+
+	@Unique
 	private Object2IntMap<Identifier> fabric_prevIndexedEntries;
 	@Unique
 	private BiMap<Identifier, RegistryEntry.Reference<T>> fabric_prevEntries;
@@ -134,6 +144,11 @@ public abstract class MixinIdRegistry<T> extends Registry<T> implements Remappab
 	@Override
 	public Event<RegistryIdRemapCallback<T>> fabric_getRemapEvent() {
 		return fabric_postRemapEvent;
+	}
+
+	@Override
+	public Event<RegistryFrozenCallback<T>> fabric_getFrozenEvent() {
+		return fabric_frozenEvent;
 	}
 
 	// The rest of the registry isn't thread-safe, so this one need not be either.
@@ -173,6 +188,11 @@ public abstract class MixinIdRegistry<T> extends Registry<T> implements Remappab
 		if (fabric_isObjectNew) {
 			fabric_addObjectEvent.invoker().onEntryAdded(id, registryId.getValue(), object);
 		}
+	}
+
+	@Inject(method = "freeze", at = @At("TAIL"))
+	private void afterFreeze(CallbackInfoReturnable<Registry<T>> cir) {
+		fabric_frozenEvent.invoker().onFrozen(this);
 	}
 
 	@Override

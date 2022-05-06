@@ -20,6 +20,8 @@ import java.util.Map;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
@@ -41,6 +43,7 @@ import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.fabricmc.fabric.api.event.registry.RegistryAttribute;
 import net.fabricmc.fabric.api.event.registry.RegistryAttributeHolder;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
+import net.fabricmc.fabric.api.event.registry.RegistryFrozenCallback;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.impl.registry.sync.RegistrySyncManager;
@@ -49,6 +52,8 @@ import net.fabricmc.fabric.impl.registry.sync.packet.NbtRegistryPacketHandler;
 import net.fabricmc.fabric.impl.registry.sync.packet.RegistryPacketHandler;
 
 public class RegistrySyncTest implements ModInitializer {
+	private static final Logger LOGGER = LoggerFactory.getLogger(RegistrySyncTest.class);
+
 	/**
 	 * These are system property's as it allows for easier testing with different run configurations.
 	 */
@@ -117,6 +122,11 @@ public class RegistrySyncTest implements ModInitializer {
 
 		// Vanilla status effects don't have an entry for the int id 0, test we can handle this.
 		RegistryAttributeHolder.get(Registry.STATUS_EFFECT).addAttribute(RegistryAttribute.MODDED);
+
+		RegistryFrozenCallback.event(Registry.GAME_EVENT).register(registry -> {
+			LOGGER.info("RegistryFrozenCallback for game events");
+			registry.getIds().forEach(id -> LOGGER.info("  " + id));
+		});
 	}
 
 	private static void registerBlocks(String namespace, int amount, int startingId) {

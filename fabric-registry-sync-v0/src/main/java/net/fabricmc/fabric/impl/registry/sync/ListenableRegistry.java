@@ -21,12 +21,14 @@ import net.minecraft.util.registry.Registry;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryRemovedCallback;
+import net.fabricmc.fabric.api.event.registry.RegistryFrozenCallback;
 import net.fabricmc.fabric.api.event.registry.RegistryIdRemapCallback;
 
 public interface ListenableRegistry<T> {
 	Event<RegistryEntryAddedCallback<T>> fabric_getAddObjectEvent();
 	Event<RegistryEntryRemovedCallback<T>> fabric_getRemoveObjectEvent();
 	Event<RegistryIdRemapCallback<T>> fabric_getRemapEvent();
+	Event<RegistryFrozenCallback<T>> fabric_getFrozenEvent();
 	@SuppressWarnings("unchecked")
 	static <T> ListenableRegistry<T> get(Registry<T> registry) {
 		if (!(registry instanceof ListenableRegistry)) {
