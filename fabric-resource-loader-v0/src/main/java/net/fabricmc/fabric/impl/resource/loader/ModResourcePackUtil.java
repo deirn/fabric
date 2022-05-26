@@ -24,16 +24,16 @@ import java.util.function.Supplier;
 import com.google.common.base.Charsets;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import net.minecraft.SharedConstants;
 import net.minecraft.resource.ResourcePack;
 import net.minecraft.resource.ResourcePackProfile;
 import net.minecraft.resource.ResourcePackSource;
+import net.minecraft.resource.ResourceType;
 import net.minecraft.resource.metadata.PackResourceMetadata;
 import net.minecraft.text.Text;
-import net.minecraft.SharedConstants;
-import net.minecraft.resource.ResourceType;
 
 import net.fabricmc.fabric.api.resource.ModResourcePack;
 import net.fabricmc.fabric.api.resource.ResourcePackActivationType;
@@ -92,34 +92,24 @@ public final class ModResourcePackUtil {
 		}
 	}
 
-	// Basically a copy of the vanilla method, with an additional parameter for Text
+	/**
+	 * A copy of {@link ResourcePackProfile#of} with additional parameter for custom text.
+	 */
 	@Nullable
-	public static ResourcePackProfile of(String name, Text text, boolean alwaysEnabled, Supplier<ResourcePack> packFactory, ResourcePackProfile.Factory profileFactory, ResourcePackProfile.InsertionPosition insertionPosition, ResourcePackSource packSource) {
-		try {
-			ResourcePack resourcePack = packFactory.get();
+	public static ResourcePackProfile createProfile(String name, Text text, boolean alwaysEnabled, Supplier<ResourcePack> packFactory, ResourcePackProfile.Factory profileFactory, ResourcePackProfile.InsertionPosition insertionPosition, ResourcePackSource packSource) {
+		try (ResourcePack pack = packFactory.get()) {
+			PackResourceMetadata metadata = pack.parseMetadata(PackResourceMetadata.READER);
 
-			ResourcePackProfile profile;
-
-			parseMetadata: {
-				try (resourcePack) {
-					PackResourceMetadata packResourceMetadata = resourcePack.parseMetadata(PackResourceMetadata.READER);
-
-					if (packResourceMetadata != null) {
-						profile = profileFactory.create(name, text, alwaysEnabled, packFactory, packResourceMetadata, insertionPosition, packSource);
-						break parseMetadata;
-					}
-
-					LOGGER.warn("Couldn't find pack meta for pack {}", name);
-				}
-
-				return null;
+			if (metadata != null) {
+				return profileFactory.create(name, text, alwaysEnabled, packFactory, metadata, insertionPosition, packSource);
 			}
 
-			return profile;
-		} catch (IOException var11) {
-			LOGGER.warn("Couldn't get pack info for: {}", var11.toString());
-			return null;
+			LOGGER.warn("Couldn't find pack meta for pack {}", name);
+		} catch (IOException e) {
+			LOGGER.warn("Couldn't get pack info for: {}", e.toString());
 		}
+
+		return null;
 	}
 
 	public static String getName(ModMetadata info) {

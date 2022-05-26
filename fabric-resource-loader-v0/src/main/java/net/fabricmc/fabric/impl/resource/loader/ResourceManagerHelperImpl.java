@@ -145,7 +145,7 @@ public class ResourceManagerHelperImpl implements ResourceManagerHelper {
 			// Add the built-in pack only if namespaces for the specified resource type are present.
 			if (!pack.getNamespaces(resourceType).isEmpty()) {
 				// Make the resource pack profile for built-in pack, should never be always enabled.
-				ResourcePackProfile profile = ModResourcePackUtil.of(entry.getLeft(), entry.getRight().getDisplayName(),
+				ResourcePackProfile profile = ModResourcePackUtil.createProfile(entry.getLeft(), entry.getRight().getDisplayName(),
 						pack.getActivationType() == ResourcePackActivationType.ALWAYS_ENABLED,
 						entry::getRight, factory, ResourcePackProfile.InsertionPosition.TOP, new BuiltinModResourcePackSource(pack.getFabricModMetadata().getId()));
 				if (profile != null) {
