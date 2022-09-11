@@ -24,8 +24,11 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.network.packet.s2c.play.SynchronizeRecipesS2CPacket;
+import net.minecraft.network.packet.s2c.play.SynchronizeTagsS2CPacket;
 import net.minecraft.util.Identifier;
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
@@ -47,6 +50,8 @@ public final class NetworkingImpl {
 	 * Dynamic registration of supported channels is still allowed using {@link NetworkingImpl#REGISTER_CHANNEL} and {@link NetworkingImpl#UNREGISTER_CHANNEL}.
 	 */
 	public static final Identifier EARLY_REGISTRATION_CHANNEL = new Identifier(MOD_ID, "early_registration");
+
+	public static final Identifier SPLIT_CHANNEL = new Identifier(MOD_ID, "split");
 
 	public static void init() {
 		// Login setup
@@ -79,6 +84,18 @@ public final class NetworkingImpl {
 
 			((ChannelInfoHolder) handler.getConnection()).getPendingChannelsNames().addAll(ids);
 			NetworkingImpl.LOGGER.debug("Received accepted channels from the client for \"{}\"", handler.getConnectionInfo());
+		});
+
+		ServerPlayNetworking.registerGlobalReceiver(SPLIT_CHANNEL, (server, player, handler, buf, responseSender) ->
+				((VanillaPacketMerger.Holder) handler.getConnection()).fabric_getVanillaPacketMerger().handle(buf));
+
+		ServerLifecycleEvents.SERVER_STARTING.register(server ->
+				VanillaPacketSplitter.STRATEGIES.values().forEach(VanillaPacketSplitter.Strategy::invalidateCache));
+
+		ServerLifecycleEvents.START_DATA_PACK_RELOAD.register((server, resourceManager) -> {
+			// Re-check packet size on datapack reload.
+			VanillaPacketSplitter.STRATEGIES.get(SynchronizeRecipesS2CPacket.class).invalidateCache();
+			VanillaPacketSplitter.STRATEGIES.get(SynchronizeTagsS2CPacket.class).invalidateCache();
 		});
 	}
 

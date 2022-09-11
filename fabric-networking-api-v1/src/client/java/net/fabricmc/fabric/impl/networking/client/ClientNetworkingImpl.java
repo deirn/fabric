@@ -43,6 +43,8 @@ import net.fabricmc.fabric.impl.networking.ChannelInfoHolder;
 import net.fabricmc.fabric.impl.networking.GlobalReceiverRegistry;
 import net.fabricmc.fabric.impl.networking.NetworkHandlerExtensions;
 import net.fabricmc.fabric.impl.networking.NetworkingImpl;
+import net.fabricmc.fabric.impl.networking.VanillaPacketMerger;
+import net.fabricmc.fabric.impl.networking.VanillaPacketSplitter;
 import net.fabricmc.fabric.mixin.networking.accessor.ConnectScreenAccessor;
 import net.fabricmc.fabric.mixin.networking.accessor.MinecraftClientAccessor;
 
@@ -112,6 +114,7 @@ public final class ClientNetworkingImpl {
 		// Reference cleanup for the locally stored addon if we are disconnected
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			currentPlayAddon = null;
+			VanillaPacketSplitter.STRATEGIES.values().forEach(VanillaPacketSplitter.Strategy::invalidateCache);
 		});
 
 		// Register a login query handler for early channel registration.
@@ -137,5 +140,8 @@ public final class ClientNetworkingImpl {
 			NetworkingImpl.LOGGER.debug("Sent accepted channels to the server");
 			return CompletableFuture.completedFuture(response);
 		});
+
+		ClientPlayNetworking.registerGlobalReceiver(NetworkingImpl.SPLIT_CHANNEL, (client, handler, buf, responseSender) ->
+				((VanillaPacketMerger.Holder) handler.getConnection()).fabric_getVanillaPacketMerger().handle(buf));
 	}
 }

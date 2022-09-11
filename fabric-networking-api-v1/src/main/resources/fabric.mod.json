@@ -25,7 +25,8 @@
   },
   "depends": {
     "fabricloader": ">=0.4.0",
-    "fabric-api-base": "*"
+    "fabric-api-base": "*",
+    "fabric-lifecycle-events-v1": "*"
   },
   "description": "Low-level, vanilla protocol oriented networking hooks.",
   "mixins": [

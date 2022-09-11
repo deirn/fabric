@@ -47,9 +47,11 @@ import net.fabricmc.fabric.impl.networking.DisconnectPacketSource;
 import net.fabricmc.fabric.impl.networking.GenericFutureListenerHolder;
 import net.fabricmc.fabric.impl.networking.NetworkHandlerExtensions;
 import net.fabricmc.fabric.impl.networking.PacketCallbackListener;
+import net.fabricmc.fabric.impl.networking.VanillaPacketMerger;
+import net.fabricmc.fabric.impl.networking.VanillaPacketSplitter;
 
 @Mixin(ClientConnection.class)
-abstract class ClientConnectionMixin implements ChannelInfoHolder {
+abstract class ClientConnectionMixin implements ChannelInfoHolder, VanillaPacketMerger.Holder {
 	@Shadow
 	private PacketListener packetListener;
 
@@ -62,9 +64,13 @@ abstract class ClientConnectionMixin implements ChannelInfoHolder {
 	@Unique
 	private Collection<Identifier> playChannels;
 
+	@Unique
+	private VanillaPacketMerger vanillaPacketMerger;
+
 	@Inject(method = "<init>", at = @At("RETURN"))
 	private void initAddedFields(NetworkSide side, CallbackInfo ci) {
 		this.playChannels = Collections.newSetFromMap(new ConcurrentHashMap<>());
+		this.vanillaPacketMerger = new VanillaPacketMerger((ClientConnection) (Object) this);
 	}
 
 	// Must be fully qualified due to mixin not working in production without it
@@ -103,8 +109,18 @@ abstract class ClientConnectionMixin implements ChannelInfoHolder {
 		}
 	}
 
+	@Inject(method = "channelActive", at = @At("HEAD"))
+	private void addSplitter(ChannelHandlerContext context, CallbackInfo ci) {
+		context.channel().pipeline().addBefore("packet_handler", "fabric:packet_splitter", new VanillaPacketSplitter((ClientConnection) (Object) (this)));
+	}
+
 	@Override
 	public Collection<Identifier> getPendingChannelsNames() {
 		return this.playChannels;
+	}
+
+	@Override
+	public VanillaPacketMerger fabric_getVanillaPacketMerger() {
+		return vanillaPacketMerger;
 	}
 }
