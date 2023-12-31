@@ -28,7 +28,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.predicate.NumberRange;
 import net.minecraft.predicate.item.ItemPredicate;
-import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
 import net.fabricmc.api.ModInitializer;
@@ -37,14 +36,15 @@ import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricAdvancementProvider;
 import net.fabricmc.fabric.api.item.v1.CustomItemPredicate;
+import net.fabricmc.fabric.api.item.v1.CustomItemPredicateRegistry;
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
 
 public class CustomItemPredicateTest implements ModInitializer, DataGeneratorEntrypoint {
 	@Override
 	public void onInitialize() {
-		Registry.register(CustomItemPredicate.REGISTRY, new Identifier("fabric-item-api-v1-testmod", "tier"), TierItemPredicate.CODEC);
-		Registry.register(CustomItemPredicate.REGISTRY, new Identifier("fabric-item-api-v1-testmod", "noop_1"), NoOpItemPredicate.INSTANCE_1.codec);
-		Registry.register(CustomItemPredicate.REGISTRY, new Identifier("fabric-item-api-v1-testmod", "noop_2"), NoOpItemPredicate.INSTANCE_2.codec);
+		CustomItemPredicateRegistry.register(new Identifier("fabric-item-api-v1-testmod", "tier"), TierItemPredicate.CODEC);
+		CustomItemPredicateRegistry.register(new Identifier("fabric-item-api-v1-testmod", "noop_1"), NoOpItemPredicate.INSTANCE_1.codec);
+		CustomItemPredicateRegistry.register(new Identifier("fabric-item-api-v1-testmod", "noop_2"), NoOpItemPredicate.INSTANCE_2.codec);
 	}
 
 	@Override
@@ -66,7 +66,7 @@ public class CustomItemPredicateTest implements ModInitializer, DataGeneratorEnt
 		}
 	}
 
-	private enum NoOpItemPredicate implements CustomItemPredicate {
+	public enum NoOpItemPredicate implements CustomItemPredicate {
 		INSTANCE_1, INSTANCE_2;
 
 		final Codec<NoOpItemPredicate> codec = Codec.unit(this);
@@ -82,7 +82,7 @@ public class CustomItemPredicateTest implements ModInitializer, DataGeneratorEnt
 		}
 	}
 
-	private record TierItemPredicate(int tier) implements CustomItemPredicate {
+	public record TierItemPredicate(int tier) implements CustomItemPredicate {
 		static final Codec<TierItemPredicate> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 				Codec.INT.fieldOf("tier").forGetter(TierItemPredicate::tier)
 		).apply(instance, TierItemPredicate::new));
