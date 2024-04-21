@@ -15,7 +15,8 @@
 
 # Intellij/Idea
 .factorypath
-.idea
+.idea/*
+!.idea/scopes/
 *.iml
 *.ipr
 *.iws

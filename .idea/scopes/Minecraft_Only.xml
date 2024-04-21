@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Minecraft Only" pattern="ext[Gradle: net.minecraft:minecraft-clientonly:*]:*/||ext[Gradle: net.minecraft:minecraft-common:*]:*/" />
+</component>
